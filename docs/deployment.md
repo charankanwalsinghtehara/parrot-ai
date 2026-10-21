@@ -1,11 +1,36 @@
-# Render Deployment
+# Render Deployment (Separate Services)
 
-1. Push this repository to a Git provider and create a Render Blueprint from the repository root.
-2. Review the Blueprint and provision the managed PostgreSQL database, Django web service, and static site.
-3. Enter `DJANGO_SECRET_KEY` as a secret in Render. Configure `AI_PROVIDER`, `AI_API_KEY`, and `AI_MODEL` only when a supported provider is desired. Never expose these through Vite variables.
-4. Set the frontend build-time `VITE_API_BASE_URL` to the deployed API URL plus `/api/v1` and configure API `CORS_ALLOWED_ORIGINS` and `CSRF_TRUSTED_ORIGINS` with the assigned frontend origin.
-5. Wait for deploy-time migrations and health check `/api/health/`; create an administrator with `python manage.py createsuperuser` via the Render shell.
-6. Run `python manage.py seed_reference_data`, confirm the stored articles have reviewed source metadata, and test registration, ownership isolation, assistant fallback, routine creation, and frontend connectivity.
-7. Confirm optional AI behavior and verify clinical ML remains unavailable unless approved data/artifact governance has been completed.
+Deploy the API and frontend as two independent Render services. Replace the example hostnames below with the actual `.onrender.com` hostnames Render assigns.
 
-Blueprint-managed values include `DATABASE_URL` and service wiring. Required/manual values include the Django secret and production domain allowlists. `DJANGO_DEBUG` must remain false in production. Keep the filesystem treated as ephemeral; do not rely on local uploads or model artifacts surviving a deploy.
+## Django API
+
+- Create a **Web Service** with root directory `backend` and Python runtime.
+- Build command: `pip install -r requirements.txt && python manage.py collectstatic --noinput`
+- Start command: `python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+- Health check path: `/api/health/`
+- Set these environment variables on the API service:
+  - `DJANGO_DEBUG=false`
+  - `DJANGO_SECRET_KEY` to a long, randomly generated secret
+  - `DATABASE_URL` to the connection string of a PostgreSQL database
+  - `DJANGO_ALLOWED_HOSTS` to the API hostname only, without a scheme, for example `parrotcare-api.onrender.com`
+  - `CORS_ALLOWED_ORIGINS` to the frontend origin, including scheme, for example `https://parrotcare-web.onrender.com`
+  - `CSRF_TRUSTED_ORIGINS` to the same frontend origin, including scheme
+  - `AI_PROVIDER=none` unless a supported AI provider is intentionally configured
+
+The start command binds Gunicorn to Render's assigned `$PORT`; omitting this bind can leave the service unreachable and fail the health check. The Django API uses session-cookie authentication with CSRF protection, not JWT.
+
+## React Frontend
+
+- Create a **Static Site** with root directory `frontend`.
+- Build command: `npm ci && npm run build`
+- Publish directory: `dist`
+- Add a rewrite from `/*` to `/index.html` so client-side routes load directly.
+- Set the build-time environment variable `VITE_API_BASE_URL` to the full API origin and API prefix, for example `https://parrotcare-api.onrender.com/api/v1`.
+
+Vite variables are public and embedded in the built site. Never put Django secrets, database credentials, or AI provider keys in `VITE_*` variables. If either service's hostname changes, update the API allowlists and redeploy the frontend if its API URL changed.
+
+## After Deployment
+
+Confirm `/api/health/` returns `{"status":"ok"}`, then create an administrator from the API service shell with `python manage.py createsuperuser` and seed reference data with `python manage.py seed_reference_data`. Test registration/login, profile creation, care records, and frontend API connectivity. Clinical ML remains unavailable unless approved data and artifact governance have been completed.
+
+Keep the filesystem treated as ephemeral; do not rely on local uploads or model artifacts surviving a deploy. Configure a persistent PostgreSQL database for application data.
