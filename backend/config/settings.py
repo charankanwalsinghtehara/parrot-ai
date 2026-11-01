@@ -74,15 +74,38 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+
 def parse_origin_list(value, default_scheme="https"):
     origins = []
     for item in value.split(","):
         origin = item.strip().rstrip("/")
-        if origin and "://" not in origin:
+        if not origin:
+            continue
+        if "://" not in origin:
             origin = f"{default_scheme}://{origin}"
-        if origin:
-            origins.append(origin)
+        origins.append(origin)
     return origins
+
+
+CORS_ALLOWED_ORIGINS = parse_origin_list(
+    os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:5174,http://127.0.0.1:5174",
+    ),
+    "https",
+)
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = parse_origin_list(
+    os.getenv(
+        "CSRF_TRUSTED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:5174,http://127.0.0.1:5174",
+    ),
+    "https",
+)
 
 
 CORS_ALLOWED_ORIGINS = parse_origin_list(os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174"), "http")
