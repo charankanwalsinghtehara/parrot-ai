@@ -20,6 +20,7 @@ from .serializers import (ArticleSerializer, CareEntrySerializer, CompletionSeri
                           RegisterSerializer, RoutineTaskSerializer, SpeciesSerializer,
                           UserSerializer, WeightSerializer)
 from .services import evaluate_safety_flags, generate_assistant_reply, persist_chat
+from django.middleware.csrf import get_token
 
 User = get_user_model()
 
