@@ -34,7 +34,10 @@ class RegisterView(generics.CreateAPIView):
 
 @ensure_csrf_cookie
 def csrf_cookie(request):
-    return JsonResponse({"detail": "CSRF cookie set"})
+    return JsonResponse({
+        "detail": "CSRF cookie set",
+        "csrfToken": get_token(request),
+    })
 
 
 @method_decorator(csrf_protect, name="dispatch")
